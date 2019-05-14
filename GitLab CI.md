@@ -33,7 +33,7 @@ check_interval = 0
 docker run -t -i --name gitlab-runner --restart always \
   -v /srv/gitlab-runner/config:/etc/gitlab-runner \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  gitlab/gitlab-runner:latest
+  gitlab/gitlab-runner:alpine-v11.10.1
 ```
 
 ## Run
