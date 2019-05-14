@@ -1,17 +1,39 @@
 # CI/CD with GitLab Runner
 
+## config.toml
+```toml
+concurrent = 1
+check_interval = 0
+
+[session_server]
+  session_timeout = 1800
+
+[[runners]]
+  name = "Runner Hieu Dep Trai"
+  url = "https://xxx.xxx"
+  token = "sacdscsd"
+  executor = "docker"
+  [runners.custom_build_dir]
+  [runners.docker]
+    tls_verify = false
+    image = "alpine:latest"
+    privileged = true
+    disable_entrypoint_overwrite = false
+    oom_kill_disable = false
+    disable_cache = false
+    volumes = ["/var/run/docker.sock:/var/run/docker.sock", "/cache"]
+    shm_size = 0
+  [runners.cache]
+    [runners.cache.s3]
+    [runners.cache.gcs]
+```
+
 ## Cài đặt GitLab Runner
 ```bash
 docker run -t -i --name gitlab-runner --restart always \
   -v /srv/gitlab-runner/config:/etc/gitlab-runner \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  gitlab/gitlab-runner:latest \
-  register \
-  --url "https://gitlab.com/" \
-  --registration-token "PROJECT_REGISTRATION_TOKEN" \
-  --description "docker-go" \
-  --executor "docker" \
-  --docker-image golang:1.10
+  gitlab/gitlab-runner:latest
 ```
 
 ## Run
