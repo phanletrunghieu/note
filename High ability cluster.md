@@ -9,21 +9,17 @@ sudo vim /etc/hosts
 
 sudo apt install corosync pacemaker pcs
 
-## Enable start on boot
+## Start pcsd
 
-sudo systemctl enable pcsd
+service pcsd start
 
-## Change password `hacluster` users (the same in all nodes)
-
-sudo passwd hacluster
-
-## Auth nodes (run in any node)
+## Auth
 
 sudo pcs cluster auth node1.example.com node2.example.com -u hacluster -p password_here --force
 
 ## Create new cluster
 
-sudo pcs cluster setup --name examplecluster node1.example.com node2.example.com 
+sudo pcs cluster setup --name examplecluster node1.example.com node2.example.com --force
 
 ## Cluster start on boot
 
@@ -39,3 +35,7 @@ sudo pcs property set stonith-enabled=false
 sudo pcs property set no-quorum-policy=ignore
 sudo pcs property list
 ```
+
+## Add floating ip
+
+pcs resource create virtual_ip ocf:heartbeat:IPaddr2 ip=10.0.15.15 cidr_netmask=32 op monitor interval=30s
