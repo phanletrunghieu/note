@@ -12,10 +12,15 @@
 - cd fabric-dev-servers
 - FABRIC_VERSION=hlfv11 ./downloadFabric.sh
 - FABRIC_VERSION=hlfv11 ./startFabric.sh
+
+## Import card
+
+Will import at ~/.composer/
+
 - FABRIC_VERSION=hlfv11 ./createPeerAdminCard.sh
 
 Stop with:
-- FABRIC_VERSION=hlfv11 ./createPeerAdminCard.sh
+- FABRIC_VERSION=hlfv11 ./stopFabric.sh
 
 ## Generate compose project
 
