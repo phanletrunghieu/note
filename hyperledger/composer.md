@@ -121,3 +121,5 @@ Edit cart > Export > Import wallet
 sed -e 's/localhost:7051/peer0.org1.example.com:7051/' -e 's/localhost:7053/peer0.org1.example.com:7053/' -e 's/localhost:7054/ca.org1.example.com:7054/'  -e 's/localhost:7050/orderer.example.com:7050/'  < $HOME/.composer/cards/restadmin@tutorial-network/connection.json  > /tmp/connection.json && cp -p /tmp/connection.json $HOME/.composer/cards/restadmin@@tutorial-network/
 
 composer card export -f jdoe_exp.card -c jdoe@tutorial-network
+
+https://hyperledger.github.io/composer/v0.19/managing/identity-issue
