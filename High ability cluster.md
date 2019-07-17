@@ -36,6 +36,10 @@ sudo pcs property set no-quorum-policy=ignore
 sudo pcs property list
 ```
 
+## Check everything ok
+
+corosync-cmapctl | grep members
+
 ## Add floating ip
 
 pcs resource create virtual_ip ocf:heartbeat:IPaddr2 ip=10.0.15.15 cidr_netmask=32 op monitor interval=30s
