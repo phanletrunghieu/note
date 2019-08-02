@@ -17,6 +17,7 @@ settings {
 
 sync {
         default.rsyncssh,
+        delete = false,
         source = "/root/sync_source",
         host = "103.56.156.217",
         targetdir = "/root/sync_backup"
