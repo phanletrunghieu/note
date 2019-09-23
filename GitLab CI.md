@@ -44,63 +44,150 @@ docker exec -it gitlab-runner gitlab-runner run &
 ## .gitlab-ci.yml
 Example with Go
 ```yml
-# This file is a template, and might need editing before it works on your project.
-image:  golang:1.10 
-
-services:
-	- postgres:10.4
-	- mysql:5.7.20
-
 variables:
-	PACKAGE_PATH:  /go/src/gitlab.com/phanletrunghieu/bot-net
-	# Configure postgres service (https://hub.docker.com/_/postgres/)
-	POSTGRES_DB:  nice_marmot
-	POSTGRES_USER:  runner
-	POSTGRES_PASSWORD:  ""
-	# Configure mysql environment variables (https://hub.docker.com/_/mysql/)
-	MYSQL_DATABASE:  el_duderino
-	MYSQL_ROOT_PASSWORD:  mysql_strong_password
+  PACKAGE_PATH: /go/src/xxx
+  # Configure postgres service (https://hub.docker.com/_/postgres/)
+  POSTGRES_DB: db
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: "123456"
+  DOCKER_DRIVER: overlay2
+  CONTAINER_TEST_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  CONTAINER_RELEASE_IMAGE: $CI_REGISTRY_IMAGE:release
+  SERVER_TEST: 127.0.0.1
+  SERVER_PROD: 127.0.0.2
 
 cache:
-	paths:
-		- /apt-cache
-		- /go/src/github.com
-		- /go/src/golang.org
-		- /go/src/google.golang.org
-		- /go/src/gopkg.in
+  paths:
+    - /apt-cache
+    - /go/src/github.com
+    - /go/src/golang.org
+    - /go/src/google.golang.org
+    - /go/src/gopkg.in
+    - /go/src/firebase.google.com
+    - ${PACKAGE_PATH}/vendor
 
 stages:
-	- test
-	- build
+  - prepare
+  - test
+  - build
+  - deploy
 
-before_script:
-	- go get -u github.com/golang/dep/cmd/dep
-	- curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.15.0
-	- mkdir -p $(dirname ${PACKAGE_PATH})
-	- ln -s ${CI_PROJECT_DIR} ${PACKAGE_PATH}
-	- cd ${PACKAGE_PATH}
-	- dep ensure
+test:
+  image: $CONTAINER_DEP_IMAGE
+  stage: test
+  services:
+    - postgres:10.4
+    - redis:5.0.3-alpine
+  before_script:
+    - apk add --update git make curl postgresql-client
+    - cd ${PACKAGE_PATH}
+    - cd ../
+    - mv ${PACKAGE_PATH} temp
+    - ln -s ${CI_PROJECT_DIR} ${PACKAGE_PATH}
+    - mv temp/vendor ${PACKAGE_PATH}
+    - cd ${PACKAGE_PATH}
+  script:
+    - export PGPASSWORD=$POSTGRES_PASSWORD
+    - export POSTGREST_DB_HOST=postgres
+    - psql -h "postgres" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f database/db.sql
+    - make test
 
-connect_pg:
-	image: postgres
-	script:
-		# official way to provide password to psql: http://www.postgresql.org/docs/9.3/static/libpq-envars.html
-		- export PGPASSWORD=$POSTGRES_PASSWORD
-		- psql -h "postgres" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 'OK' AS status;"
+build-test:
+  image: docker:stable
+  stage: build
+  only:
+    - development
+  services:
+    - docker:dind
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build -t $CONTAINER_TEST_IMAGE .
+    - docker push $CONTAINER_TEST_IMAGE
 
-connect_mysql:
-	image: mysql
-	script:
-		- echo "SELECT 'OK';" | mysql --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
+build-release:
+  image: docker:stable
+  stage: build
+  only:
+    - /^v.+$/
+  except:
+    - branches
+  services:
+    - docker:dind
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build -t $CONTAINER_RELEASE_IMAGE .
+    - docker push $CONTAINER_RELEASE_IMAGE
 
-unit_tests:
-	stage: test
-	script:
-		- go test ./...
-		- golangci-lint run
+deploy-test:
+  image: docker:stable
+  stage: deploy
+  only:
+    - development
+  services:
+    - docker:dind
+  environment:
+    name: Test
+  before_script:
+    - apk --update add openssh-client
+    - eval $(ssh-agent -s)
+    - cat docker-compose/app/deploy_key_test | tr -d '\r' | ssh-add - > /dev/null
+    - ssh-add -l
+    - mkdir -p ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - apk add socat
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker pull $CONTAINER_TEST_IMAGE
+    - docker save $CONTAINER_TEST_IMAGE > image.tar
+    - scp image.tar root@$SERVER_TEST:~/xxx/
 
-build:
-	stage:  build
-	script:
-		- make build
+    - scp .env.test root@$SERVER_TEST:~/xxx/.env
+    - scp docker-compose/app/docker-compose.yml root@$SERVER_TEST:~/xxx
+    - scp -r database/sql/* root@$SERVER_TEST:~/xxx/migrate/sql
+    - ssh -tt root@$SERVER_TEST "cd xxx &&
+      docker load < image.tar &&
+      docker-compose -f docker-compose.yml -p xxx down &&
+      docker-compose -f docker-compose.yml -p xxx up -d &&
+      cd migrate &&
+      ./migrate-up.sh"
+
+deploy-release:
+  image: docker:stable
+  stage: deploy
+  only:
+    - /^v.+$/
+  except:
+    - branches
+  services:
+    - docker:dind
+  environment:
+    name: Production
+  before_script:
+    - apk --update add openssh-client
+    - eval $(ssh-agent -s)
+    - cat docker-compose/app/deploy_key_prod | tr -d '\r' | ssh-add - > /dev/null
+    - ssh-add -l
+    - mkdir -p ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - apk add socat
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker pull $CONTAINER_RELEASE_IMAGE
+    - docker save $CONTAINER_RELEASE_IMAGE > image.tar
+    - scp image.tar root@$SERVER_PROD:~/xxx/
+
+    - scp .env.prod root@$SERVER_PROD:~/xxx/.env
+    - scp docker-compose/app/docker-compose.yml root@$SERVER_PROD:~/xxx
+    - scp -r database/sql/* root@$SERVER_PROD:~/xxx/migrate/sql
+    - ssh -tt root@$SERVER_PROD "cd xxx &&
+      docker load < image.tar &&
+      docker-compose -f docker-compose.yml -p xxx down &&
+      docker-compose -f docker-compose.yml -p xxx up -d &&
+      cd migrate &&
+      ./migrate-up.sh"
+
+    - ssh -tt root@$SERVER_PROD_2 "cd xxx &&
+      docker load < image.tar &&
+      docker-compose -f docker-compose.yml -p xxx down &&
+      docker-compose -f docker-compose.yml -p xxx up -d"
 ```
