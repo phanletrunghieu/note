@@ -1,0 +1,84 @@
+# Kubernetes
+
+## Demo: https://github.com/phanletrunghieu/demo/tree/master/kube
+
+## Install minikube
+
+### 1. Install Packages Dependencies
+
+Install
+```bash
+sudo pacman -Sy libvirt qemu ebtables dnsmasq
+```
+
+Start libvirtd
+```
+sudo systemctl start libvirtd
+```
+
+Install docker-machine (Optional)
+
+```bash
+curl -L https://github.com/docker/machine/releases/download/v0.13.0/docker-machine-`uname -s`-`uname -m` > docker-machine
+
+chmod +x docker-machine
+
+sudo cp docker-machine /usr/local/bin/docker-machine
+
+rm docker-machine
+```
+
+### 2. Re-check
+
+```bash
+virt-host-validate
+```
+
+![Re-check minikube](/images/k8s/install-minikube.jpg)
+
+### 3. Install Minikube
+
+https://minikube.sigs.k8s.io/docs/start/linux/
+
+```bash
+curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
+
+sudo install minikube-linux-amd64 /usr/local/bin/minikube
+```
+
+**Start minikube**
+
+```bash
+minikube start --vm-driver=kvm2 --cpus=2 --disk-size=10GB
+```
+
+**Stop minikube**
+
+```bash
+minikube stop
+```
+
+**Show dashboard**
+
+```bash
+minikube dashboard
+```
+
+**Addon**
+
+```bash
+minikube addons list
+minikube addons enable ingress # for nginx
+minikube addons enable metrics-server # for autoscaling
+```
+
+### 4. Install **virt-manager** to show virtual machine
+
+```bash
+sudo pacman -S virt-manager
+
+virt-manager
+```
+
+![virt-manager](/images/k8s/virt-manager.png)
+
