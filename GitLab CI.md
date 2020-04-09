@@ -191,3 +191,9 @@ deploy-release:
       docker-compose -f docker-compose.yml -p xxx down &&
       docker-compose -f docker-compose.yml -p xxx up -d"
 ```
+
+## Use docker images from a private registry
+
+Set project env DOCKER_AUTH_CONFIG with value in .docker/config.json
+
+https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#define-an-image-from-a-private-container-registry
